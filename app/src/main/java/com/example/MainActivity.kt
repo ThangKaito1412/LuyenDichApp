@@ -78,6 +78,16 @@ class MainActivity : ComponentActivity() {
     private var activeViewModel: TranslationViewModel? = null
     private var consecutiveErrors = 0
     private var isRestarting = false
+    private var isSpeechRecognizerCurrentlyRunning = false
+
+    private fun cancelSpeechRecognizer() {
+        isSpeechRecognizerCurrentlyRunning = false
+        try {
+            speechRecognizer?.cancel()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     private fun updateLockscreenConfiguration() {
         try {
@@ -150,21 +160,13 @@ class MainActivity : ComponentActivity() {
                         viewModel.feedback.value
                     ) {
                         if (viewModel.isTtsSpeaking.value) {
-                            try {
-                                speechRecognizer?.cancel()
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
+                            cancelSpeechRecognizer()
                         } else {
                             if (viewModel.isSpeechRecognitionActive.value && viewModel.feedback.value !is FeedbackState.Correct) {
-                                delay(500) // Calm delay before starting mic after TTS ends or when state becomes active
+                                delay(600) // Calm delay before starting mic after TTS ends or when state becomes active
                                 startSpeechRecognizerListening()
                             } else {
-                                try {
-                                    speechRecognizer?.cancel()
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
+                                cancelSpeechRecognizer()
                             }
                         }
                     }
@@ -180,11 +182,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onStopDictationClick = {
                             viewModel.isSpeechRecognitionActive.value = false
-                            try {
-                                speechRecognizer?.cancel()
-                            } catch (e: Exception) {
-                                // Ignore
-                            }
+                            cancelSpeechRecognizer()
                         }
                     )
                 }
@@ -197,13 +195,18 @@ class MainActivity : ComponentActivity() {
             if (SpeechRecognizer.isRecognitionAvailable(this)) {
                 speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
                     setRecognitionListener(object : RecognitionListener {
-                        override fun onReadyForSpeech(params: Bundle?) {}
-                        override fun onBeginningOfSpeech() {}
+                        override fun onReadyForSpeech(params: Bundle?) {
+                            isSpeechRecognizerCurrentlyRunning = true
+                        }
+                        override fun onBeginningOfSpeech() {
+                            isSpeechRecognizerCurrentlyRunning = true
+                        }
                         override fun onRmsChanged(rmsdB: Float) {}
                         override fun onBufferReceived(buffer: ByteArray?) {}
                         override fun onEndOfSpeech() {}
                         
                         override fun onError(error: Int) {
+                            isSpeechRecognizerCurrentlyRunning = false
                             val message = when (error) {
                                 SpeechRecognizer.ERROR_AUDIO -> "Lỗi âm thanh"
                                 SpeechRecognizer.ERROR_CLIENT -> "Lỗi kết nối client"
@@ -233,6 +236,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         override fun onResults(results: Bundle?) {
+                            isSpeechRecognizerCurrentlyRunning = false
                             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             if (!matches.isNullOrEmpty()) {
                                 val recognizedText = matches[0]
@@ -260,6 +264,7 @@ class MainActivity : ComponentActivity() {
 
     private fun recreateSpeechRecognizer() {
         runOnUiThread {
+            isSpeechRecognizerCurrentlyRunning = false
             try {
                 speechRecognizer?.destroy()
                 speechRecognizer = null
@@ -330,6 +335,10 @@ class MainActivity : ComponentActivity() {
             // Do not open mic while TTS is speaking
             return
         }
+        if (isSpeechRecognizerCurrentlyRunning) {
+            // Already listening, do not duplicate start
+            return
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             val langCode = if (vm.currentDirection.value == "vi") {
@@ -358,9 +367,11 @@ class MainActivity : ComponentActivity() {
                     return
                 }
                 vm.isSpeechRecognitionActive.value = true
-                speechRecognizer?.cancel()
+                cancelSpeechRecognizer()
+                isSpeechRecognizerCurrentlyRunning = true
                 speechRecognizer?.startListening(intent)
             } catch (e: Exception) {
+                isSpeechRecognizerCurrentlyRunning = false
                 // If starting fails due to engine state corruption, recreate instead of giving up
                 recreateSpeechRecognizer()
             }
