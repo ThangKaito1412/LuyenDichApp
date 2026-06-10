@@ -184,11 +184,11 @@ class MainActivity : ComponentActivity() {
                                 SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Thiếu quyền ghi âm"
                                 SpeechRecognizer.ERROR_NETWORK -> "Lỗi kết nối mạng"
                                 SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Hết thời gian kết nối"
-                                SpeechRecognizer.ERROR_NO_MATCH -> "Không nhận rõ giọng nói"
-                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Hệ thống nhận dạng đang bận"
+                                SpeechRecognizer.ERROR_NO_MATCH -> "Vui lòng nói rõ ràng hơn"
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Đang thiết lập lại micro..."
                                 SpeechRecognizer.ERROR_SERVER -> "Lỗi máy chủ giọng nói"
-                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Không nghe thấy tiếng nói"
-                                else -> "Vui lòng thử nói lại"
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Đang chờ giọng nói..."
+                                else -> "Hãy thử nói lại"
                             }
                             
                             activeViewModel?.apply {
@@ -198,7 +198,6 @@ class MainActivity : ComponentActivity() {
                                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                                 } else if (!isSpeechRecognitionActive.value) {
                                     currentSpeechTranscript.value = ""
-                                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                                 }
                             }
                             
@@ -233,6 +232,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun recreateSpeechRecognizer() {
+        runOnUiThread {
+            try {
+                speechRecognizer?.destroy()
+                speechRecognizer = null
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            initSpeechRecognizer()
+        }
+    }
+
     private fun restartListeningIfNeeded(isFromOkResult: Boolean = false, errorCode: Int? = null) {
         val vm = activeViewModel ?: return
         if (!vm.isSpeechRecognitionActive.value) return
@@ -249,41 +260,34 @@ class MainActivity : ComponentActivity() {
             try {
                 if (isFromOkResult) {
                     consecutiveErrors = 0
-                    delay(400)
+                    delay(300)
                 } else if (errorCode != null) {
+                    consecutiveErrors++
                     when (errorCode) {
                         SpeechRecognizer.ERROR_NO_MATCH,
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                            consecutiveErrors++
-                            if (consecutiveErrors >= 5) {
-                                vm.isSpeechRecognitionActive.value = false
-                                vm.currentSpeechTranscript.value = ""
-                                Toast.makeText(this@MainActivity, "Tự động tắt micro do không có giọng nói trong thời gian dài.", Toast.LENGTH_SHORT).show()
-                                consecutiveErrors = 0
-                                isRestarting = false
-                                return@launch
+                            if (consecutiveErrors >= 3) {
+                                recreateSpeechRecognizer()
+                                delay(2500)
+                            } else {
+                                delay(1500)
                             }
-                            delay(2500) // Calm delay between voice sessions to prevent continuous "tít tít tít" beep sounds
                         }
                         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
-                            // Give extra time to discharge pending recognition states from system
-                            delay(1500)
+                            recreateSpeechRecognizer()
+                            delay(2000)
                         }
                         else -> {
-                            consecutiveErrors++
-                            if (consecutiveErrors >= 3) {
-                                vm.isSpeechRecognitionActive.value = false
-                                vm.currentSpeechTranscript.value = ""
-                                Toast.makeText(this@MainActivity, "Tạm dừng dịch tự động do gặp lỗi liên tiếp. Vui lòng nhấn vào micro để thử lại.", Toast.LENGTH_LONG).show()
-                                consecutiveErrors = 0
-                                isRestarting = false
-                                return@launch
+                            if (consecutiveErrors >= 2) {
+                                recreateSpeechRecognizer()
+                                delay(3000)
+                            } else {
+                                delay(1500)
                             }
-                            delay(1500)
                         }
                     }
                 } else {
-                    delay(400)
+                    delay(300)
                 }
 
                 if (vm.isSpeechRecognitionActive.value && vm.feedback.value !is FeedbackState.Correct) {
@@ -308,6 +312,10 @@ class MainActivity : ComponentActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
             putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(langCode))
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            // Configure custom timeout extras to tell the engine to keep listening much longer (mutes rapid automatic restarts)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -324,7 +332,8 @@ class MainActivity : ComponentActivity() {
                 speechRecognizer?.cancel()
                 speechRecognizer?.startListening(intent)
             } catch (e: Exception) {
-                vm.isSpeechRecognitionActive.value = false
+                // If starting fails due to engine state corruption, recreate instead of giving up
+                recreateSpeechRecognizer()
             }
         }
     }
