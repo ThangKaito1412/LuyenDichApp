@@ -166,6 +166,7 @@ class TranslationViewModel(application: Application) : AndroidViewModel(applicat
 
     // Speech-to-Text active indicators
     val isSpeechRecognitionActive = mutableStateOf(false)
+    val isTtsSpeaking = mutableStateOf(false)
     val currentSpeechTranscript = mutableStateOf("")
     val speechAccumulatedBuffer = mutableStateOf("")
     private var speechResetJob: Job? = null
@@ -523,61 +524,66 @@ class TranslationViewModel(application: Application) : AndroidViewModel(applicat
             return
         }
         
-        // Strip pinyin annotations and parenthesis for pleasant audio output
-        val cleanText = text
-            .replace("\\(.*?\\)".toRegex(), "")
-            .replace("\\uff08.*?\\uff09".toRegex(), "")
-            .replace("\\[.*?\\]".toRegex(), "")
-            .trim()
+        isTtsSpeaking.value = true
+        try {
+            // Strip pinyin annotations and parenthesis for pleasant audio output
+            val cleanText = text
+                .replace("\\(.*?\\)".toRegex(), "")
+                .replace("\\uff08.*?\\uff09".toRegex(), "")
+                .replace("\\[.*?\\]".toRegex(), "")
+                .trim()
 
-        if (cleanText.isEmpty()) {
+            if (cleanText.isEmpty()) {
+                delay(extraDelayAfterMs)
+                return
+            }
+
+            val utteranceId = "TranslationEngine_${System.currentTimeMillis()}"
+            val deferred = CompletableDeferred<Unit>()
+            
+            activeCallbacks[utteranceId] = {
+                if (deferred.isActive) {
+                    deferred.complete(Unit)
+                }
+            }
+
+            try {
+                tts?.stop()
+            } catch (e: Exception) {
+                Log.e("TranslationViewModel", "Error stopping TTS", e)
+            }
+            // Give the TTS engine 300ms to cleanly reset its stream before speaking
+            delay(300)
+
+            tts?.apply {
+                language = if (lang == "zh") {
+                    Locale.CHINESE
+                } else if (lang == "vi") {
+                    val viLocale = Locale("vi", "VN")
+                    val isSupported = isLanguageAvailable(viLocale)
+                    if (isSupported >= TextToSpeech.LANG_AVAILABLE) viLocale else Locale.US
+                } else {
+                    Locale.US
+                }
+                speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+            }
+
+            // Safe fallback timeout based on length: e.g. 250ms per character + 4000ms buffer
+            val fallbackDurationMs = (cleanText.length * 250L) + 4000L
+            try {
+                withTimeout(fallbackDurationMs) {
+                    deferred.await()
+                }
+            } catch (e: Exception) {
+                // Timeout or cancellation
+            } finally {
+                activeCallbacks.remove(utteranceId)
+            }
+            
             delay(extraDelayAfterMs)
-            return
-        }
-
-        val utteranceId = "TranslationEngine_${System.currentTimeMillis()}"
-        val deferred = CompletableDeferred<Unit>()
-        
-        activeCallbacks[utteranceId] = {
-            if (deferred.isActive) {
-                deferred.complete(Unit)
-            }
-        }
-
-        try {
-            tts?.stop()
-        } catch (e: Exception) {
-            Log.e("TranslationViewModel", "Error stopping TTS", e)
-        }
-        // Give the TTS engine 300ms to cleanly reset its stream before speaking
-        delay(300)
-
-        tts?.apply {
-            language = if (lang == "zh") {
-                Locale.CHINESE
-            } else if (lang == "vi") {
-                val viLocale = Locale("vi", "VN")
-                val isSupported = isLanguageAvailable(viLocale)
-                if (isSupported >= TextToSpeech.LANG_AVAILABLE) viLocale else Locale.US
-            } else {
-                Locale.US
-            }
-            speak(cleanText, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-        }
-
-        // Safe fallback timeout based on length: e.g. 250ms per character + 4000ms buffer
-        val fallbackDurationMs = (cleanText.length * 250L) + 4000L
-        try {
-            withTimeout(fallbackDurationMs) {
-                deferred.await()
-            }
-        } catch (e: Exception) {
-            // Timeout or cancellation
         } finally {
-            activeCallbacks.remove(utteranceId)
+            isTtsSpeaking.value = false
         }
-        
-        delay(extraDelayAfterMs)
     }
 
     fun checkAnswer() {

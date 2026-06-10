@@ -143,6 +143,32 @@ class MainActivity : ComponentActivity() {
                     val viewModel: TranslationViewModel = viewModel()
                     activeViewModel = viewModel
 
+                    // Reactive coordination to cleanly separate TTS and Speech Recognition
+                    LaunchedEffect(
+                        viewModel.isTtsSpeaking.value,
+                        viewModel.isSpeechRecognitionActive.value,
+                        viewModel.feedback.value
+                    ) {
+                        if (viewModel.isTtsSpeaking.value) {
+                            try {
+                                speechRecognizer?.cancel()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        } else {
+                            if (viewModel.isSpeechRecognitionActive.value && viewModel.feedback.value !is FeedbackState.Correct) {
+                                delay(500) // Calm delay before starting mic after TTS ends or when state becomes active
+                                startSpeechRecognizerListening()
+                            } else {
+                                try {
+                                    speechRecognizer?.cancel()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+                    }
+
                     TranslationAppScreen(
                         viewModel = viewModel,
                         isDark = useDarkTheme,
@@ -247,6 +273,7 @@ class MainActivity : ComponentActivity() {
     private fun restartListeningIfNeeded(isFromOkResult: Boolean = false, errorCode: Int? = null) {
         val vm = activeViewModel ?: return
         if (!vm.isSpeechRecognitionActive.value) return
+        if (vm.isTtsSpeaking.value) return
         
         // Block restart if matched correct answer to prevent audio-loop/re-triggering on transition
         if (vm.feedback.value is FeedbackState.Correct) {
@@ -266,19 +293,17 @@ class MainActivity : ComponentActivity() {
                     when (errorCode) {
                         SpeechRecognizer.ERROR_NO_MATCH,
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                            if (consecutiveErrors >= 3) {
-                                recreateSpeechRecognizer()
-                                delay(2500)
-                            } else {
-                                delay(1500)
-                            }
+                            // Do not destroy/recreate recognizer for simple timeout or no-match.
+                            // Simply hold a peaceful delay before checking if we should listen again.
+                            delay(2500)
                         }
                         SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
                             recreateSpeechRecognizer()
                             delay(2000)
                         }
                         else -> {
-                            if (consecutiveErrors >= 2) {
+                            // Only recreate on consecutive other system mistakes
+                            if (consecutiveErrors >= 3) {
                                 recreateSpeechRecognizer()
                                 delay(3000)
                             } else {
@@ -290,7 +315,7 @@ class MainActivity : ComponentActivity() {
                     delay(300)
                 }
 
-                if (vm.isSpeechRecognitionActive.value && vm.feedback.value !is FeedbackState.Correct) {
+                if (vm.isSpeechRecognitionActive.value && !vm.isTtsSpeaking.value && vm.feedback.value !is FeedbackState.Correct) {
                     startSpeechRecognizerListening()
                 }
             } finally {
@@ -301,6 +326,10 @@ class MainActivity : ComponentActivity() {
 
     private fun startSpeechRecognizerListening() {
         val vm = activeViewModel ?: return
+        if (vm.isTtsSpeaking.value) {
+            // Do not open mic while TTS is speaking
+            return
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             val langCode = if (vm.currentDirection.value == "vi") {
