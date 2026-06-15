@@ -462,7 +462,11 @@ fun SetupScreenView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
                     Text(
                         text = "Luyện Dịch",
                         style = MaterialTheme.typography.headlineLarge,
