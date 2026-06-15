@@ -27,6 +27,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -438,15 +439,20 @@ fun SetupScreenView(
     var showFolderManageDialog by remember { mutableStateOf(false) }
     var folderToRenameId by remember { mutableStateOf<Long?>(null) }
     var renameFolderInput by remember { mutableStateOf("") }
+    var showConfigDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         // App Header
         item {
             Row(
@@ -470,7 +476,7 @@ fun SetupScreenView(
                     )
                 }
 
-                // Lockscreen & Theme Toggles
+                // Lockscreen, Settings & Theme Toggles
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -492,6 +498,20 @@ fun SetupScreenView(
                     }
 
                     IconButton(
+                        onClick = { showConfigDialog = true },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Cấu hình luyện tập",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
                         onClick = onToggleTheme,
                         modifier = Modifier
                             .clip(CircleShape)
@@ -506,439 +526,7 @@ fun SetupScreenView(
             }
         }
 
-        // Input Text Block
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "DANH SÁCH CÂU ĐỂ LUYỆN TẬP",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Định dạng: Câu Việt = Câu nước ngoài (ngăn cách bằng dấu = hoặc #). Mỗi cặp câu ghi trên một dòng mới.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        lineHeight = 15.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = viewModel.rawTextContent.value,
-                        onValueChange = { viewModel.rawTextContent.value = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp),
-                        placeholder = {
-                            Text(
-                                text = "Ví dụ:\nchào buổi sáng = good morning\ntôi khỏe = i am fine\nThành phố này rất đẹp = This city is beautiful",
-                                fontSize = 13.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                            )
-                        },
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
-                        shape = RoundedCornerShape(16.dp),
-                        maxLines = 100
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Paste & Clear buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clipData = clipboardManager.primaryClip
-                                if (clipData != null && clipData.itemCount > 0) {
-                                    val text = clipData.getItemAt(0).text.toString()
-                                    viewModel.rawTextContent.value = text
-                                    Toast.makeText(context, "Đã dán từ clipboard!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Bộ nhớ tạm trống", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.ContentPaste, contentDescription = "Dán", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Dán văn bản", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-
-                        Button(
-                            onClick = { viewModel.rawTextContent.value = "" },
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f), contentColor = MaterialTheme.colorScheme.onErrorContainer),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Xóa", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Xóa tất cả", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Preset Quick Loads
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "TẢI NHANH CÂU MẪU ĐỀ NGHỊ",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                    ) {
-                        val matchingSets = studySets.filter { 
-                            it.isPreset && it.language == targetLangState
-                        }
-
-                        if (matchingSets.isEmpty()) {
-                            Text("Không có preset. Hãy kết nối cơ sở dữ liệu.", fontSize = 12.sp)
-                        }
-
-                        matchingSets.forEach { preset ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                    .clickable {
-                                        viewModel.rawTextContent.value = preset.rawContent
-                                        Toast.makeText(context, "Đã tải: ${preset.title}", Toast.LENGTH_SHORT).show()
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = preset.title.substringBefore(" ("),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Settings / Form Config
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "CẤU HÌNH LUYỆN TẬP",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // 1. Language Options
-                    Text("1. Ngôn ngữ mục tiêu:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { 
-                                viewModel.targetLanguage.value = "en"
-                            }
-                        ) {
-                            RadioButton(
-                                selected = targetLangState == "en",
-                                onClick = { viewModel.targetLanguage.value = "en" }
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tiếng Anh", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { 
-                                viewModel.targetLanguage.value = "zh"
-                            }
-                        ) {
-                            RadioButton(
-                                selected = targetLangState == "zh",
-                                onClick = { viewModel.targetLanguage.value = "zh" }
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tiếng Trung", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // 2. Mode options
-                    Text("2. Chế độ luyện tập:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val activeMode = viewModel.practiceMode.value
-                        val foreignLabel = if (targetLangState == "zh") "Tiếng Trung" else "Tiếng Anh"
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.practiceMode.value = "foreign-vi" }
-                        ) {
-                            RadioButton(
-                                selected = activeMode == "foreign-vi",
-                                onClick = { viewModel.practiceMode.value = "foreign-vi" }
-                            )
-                            Text("Dịch từ $foreignLabel sang Việt", fontSize = 13.sp)
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.practiceMode.value = "vi-foreign" }
-                        ) {
-                            RadioButton(
-                                selected = activeMode == "vi-foreign",
-                                onClick = { viewModel.practiceMode.value = "vi-foreign" }
-                            )
-                            Text("Dịch từ Tiếng Việt sang $foreignLabel", fontSize = 13.sp)
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { viewModel.practiceMode.value = "random" }
-                        ) {
-                            RadioButton(
-                                selected = activeMode == "random",
-                                onClick = { viewModel.practiceMode.value = "random" }
-                            )
-                            Text("Ngẫu nhiên hai chiều", fontSize = 13.sp)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // 3. Shuffle checkbox
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { viewModel.isShuffle.value = !viewModel.isShuffle.value }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = viewModel.isShuffle.value,
-                            onCheckedChange = { viewModel.isShuffle.value = it }
-                        )
-                        Text("Xáo trộn thứ tự các câu", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // 4. Starred only checkbox
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { viewModel.practiceOnlyStarred.value = !viewModel.practiceOnlyStarred.value }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = viewModel.practiceOnlyStarred.value,
-                            onCheckedChange = { viewModel.practiceOnlyStarred.value = it }
-                        )
-                        Text("⭐ Chỉ luyện tập các câu có gắn sao trước", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
-        }
-
-        // Action Deck Persistence and Start
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "LƯU ĐỀ ĐÃ NHẬP",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = viewModel.deckTitle.value,
-                            onValueChange = { viewModel.deckTitle.value = it },
-                            placeholder = { Text("Tên bộ câu hỏi mới...", fontSize = 13.sp) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.weight(1f),
-                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
-                        )
-
-                        Button(
-                            onClick = {
-                                viewModel.saveNewStudySetCompose(context, folderForNewDeckId) { msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                    viewModel.deckTitle.value = ""
-                                }
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.Save, contentDescription = "Lưu", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Lưu", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Folder selector dropdown when saving
-                    var folderDropdownExpanded by remember { mutableStateOf(false) }
-                    val currentSelectedFolderLabel = if (folderForNewDeckId == null) {
-                        "📁 Chưa phân loại / Không chọn thư mục"
-                    } else {
-                        "📂 " + (folders.find { it.id == folderForNewDeckId }?.name ?: "Nhấp để chọn")
-                    }
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                                .clickable { folderDropdownExpanded = true }
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Lưu vào thư mục: $currentSelectedFolderLabel",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = "Chọn thư mục",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = folderDropdownExpanded,
-                            onDismissRequest = { folderDropdownExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("📁 Chưa phân loại", fontSize = 13.sp) },
-                                onClick = {
-                                    folderForNewDeckId = null
-                                    folderDropdownExpanded = false
-                                }
-                            )
-                            folders.forEach { folder ->
-                                DropdownMenuItem(
-                                    text = { Text("📂 ${folder.name}", fontSize = 13.sp) },
-                                    onClick = {
-                                        folderForNewDeckId = folder.id
-                                        folderDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
-                        onClick = {
-                            if (viewModel.rawTextContent.value.isEmpty()) {
-                                Toast.makeText(context, "Mời nhập danh sách hoặc chọn câu mẫu!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                val ok = viewModel.startPractice()
-                                if (!ok) {
-                                    Toast.makeText(context, "Không có câu được gắn sao nào trong bộ đề này!", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Bắt đầu")
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Bắt đầu Luyện tập", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // Custom list item lists
+        // Custom list item lists (moved to top for convenience)
         val userDecks = studySets.filter { !it.isPreset }
         if (userDecks.isNotEmpty()) {
             item {
@@ -1116,8 +704,313 @@ fun SetupScreenView(
             }
         }
 
+        // Input Text Block
         item {
-            Spacer(modifier = Modifier.height(30.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "DANH SÁCH CÂU ĐỂ LUYỆN TẬP",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Định dạng: Câu Việt = Câu nước ngoài (ngăn cách bằng dấu = hoặc #). Mỗi cặp câu ghi trên một dòng mới.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        lineHeight = 15.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = viewModel.rawTextContent.value,
+                        onValueChange = { viewModel.rawTextContent.value = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        placeholder = {
+                            Text(
+                                text = "Ví dụ:\nchào buổi sáng = good morning\ntôi khỏe = i am fine\nThành phố này rất đẹp = This city is beautiful",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            )
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+                        shape = RoundedCornerShape(16.dp),
+                        maxLines = 100
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Paste & Clear buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clipData = clipboardManager.primaryClip
+                                if (clipData != null && clipData.itemCount > 0) {
+                                    val text = clipData.getItemAt(0).text.toString()
+                                    viewModel.rawTextContent.value = text
+                                    Toast.makeText(context, "Đã dán từ clipboard!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Bộ nhớ tạm trống", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = "Dán", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Dán văn bản", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Button(
+                            onClick = { viewModel.rawTextContent.value = "" },
+                            shape = RoundedCornerShape(20.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f), contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Xóa", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Xóa tất cả", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Preset Quick Loads
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "TẢI NHANH CÂU MẪU ĐỀ NGHỊ",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        val matchingSets = studySets.filter { 
+                            it.isPreset && it.language == targetLangState
+                        }
+
+                        if (matchingSets.isEmpty()) {
+                            Text("Không có preset. Hãy kết nối cơ sở dữ liệu.", fontSize = 12.sp)
+                        }
+
+                        matchingSets.forEach { preset ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                    .clickable {
+                                        viewModel.rawTextContent.value = preset.rawContent
+                                        Toast.makeText(context, "Đã tải: ${preset.title}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = preset.title.substringBefore(" ("),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+        // Action Deck Persistence and Start
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.06f)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "LƯU ĐỀ ĐÃ NHẬP",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = viewModel.deckTitle.value,
+                            onValueChange = { viewModel.deckTitle.value = it },
+                            placeholder = { Text("Tên bộ câu hỏi mới...", fontSize = 13.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.weight(1f),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+                        )
+
+                        Button(
+                            onClick = {
+                                viewModel.saveNewStudySetCompose(context, folderForNewDeckId) { msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    viewModel.deckTitle.value = ""
+                                }
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = "Lưu", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Lưu", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Folder selector dropdown when saving
+                    var folderDropdownExpanded by remember { mutableStateOf(false) }
+                    val currentSelectedFolderLabel = if (folderForNewDeckId == null) {
+                        "📁 Chưa phân loại / Không chọn thư mục"
+                    } else {
+                        "📂 " + (folders.find { it.id == folderForNewDeckId }?.name ?: "Nhấp để chọn")
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                .clickable { folderDropdownExpanded = true }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Lưu vào thư mục: $currentSelectedFolderLabel",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = "Chọn thư mục",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = folderDropdownExpanded,
+                            onDismissRequest = { folderDropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("📁 Chưa phân loại", fontSize = 13.sp) },
+                                onClick = {
+                                    folderForNewDeckId = null
+                                    folderDropdownExpanded = false
+                                }
+                            )
+                            folders.forEach { folder ->
+                                DropdownMenuItem(
+                                    text = { Text("📂 ${folder.name}", fontSize = 13.sp) },
+                                    onClick = {
+                                        folderForNewDeckId = folder.id
+                                        folderDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+
+
+    }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                            MaterialTheme.colorScheme.background
+                        )
+                    )
+                )
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp, top = 24.dp)
+        ) {
+            Button(
+                onClick = {
+                    if (viewModel.rawTextContent.value.isEmpty()) {
+                        Toast.makeText(context, "Mời nhập danh sách hoặc chọn câu mẫu!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val ok = viewModel.startPractice()
+                        if (!ok) {
+                            Toast.makeText(context, "Không có câu được gắn sao nào trong bộ đề này!", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Bắt đầu")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Bắt đầu Luyện tập", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 
@@ -1301,6 +1194,165 @@ fun SetupScreenView(
             }
         )
     }
+
+    if (showConfigDialog) {
+        val targetLangState = viewModel.targetLanguage.value
+        AlertDialog(
+            onDismissRequest = { showConfigDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Cấu hình Luyện tập",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    IconButton(onClick = { showConfigDialog = false }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Đóng",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 1. Language Options
+                    Text("1. Ngôn ngữ mục tiêu:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { 
+                                viewModel.targetLanguage.value = "en"
+                            }
+                        ) {
+                            RadioButton(
+                                selected = targetLangState == "en",
+                                onClick = { viewModel.targetLanguage.value = "en" }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Tiếng Anh", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { 
+                                viewModel.targetLanguage.value = "zh"
+                            }
+                        ) {
+                            RadioButton(
+                                selected = targetLangState == "zh",
+                                onClick = { viewModel.targetLanguage.value = "zh" }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Tiếng Trung", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    // 2. Mode options
+                    Text("2. Chế độ luyện tập:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val activeMode = viewModel.practiceMode.value
+                        val foreignLabel = if (targetLangState == "zh") "Tiếng Trung" else "Tiếng Anh"
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.practiceMode.value = "foreign-vi" }
+                        ) {
+                            RadioButton(
+                                selected = activeMode == "foreign-vi",
+                                onClick = { viewModel.practiceMode.value = "foreign-vi" }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Dịch từ $foreignLabel sang Việt", fontSize = 13.sp)
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.practiceMode.value = "vi-foreign" }
+                        ) {
+                            RadioButton(
+                                selected = activeMode == "vi-foreign",
+                                onClick = { viewModel.practiceMode.value = "vi-foreign" }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Dịch từ Tiếng Việt sang $foreignLabel", fontSize = 13.sp)
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.practiceMode.value = "random" }
+                        ) {
+                            RadioButton(
+                                selected = activeMode == "random",
+                                onClick = { viewModel.practiceMode.value = "random" }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Ngẫu nhiên hai chiều", fontSize = 13.sp)
+                        }
+                    }
+
+                    // 3. Shuffle checkbox
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { viewModel.isShuffle.value = !viewModel.isShuffle.value }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = viewModel.isShuffle.value,
+                            onCheckedChange = { viewModel.isShuffle.value = it }
+                        )
+                        Text("Xáo trộn thứ tự các câu", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+
+                    // 4. Starred only checkbox
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { viewModel.practiceOnlyStarred.value = !viewModel.practiceOnlyStarred.value }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = viewModel.practiceOnlyStarred.value,
+                            onCheckedChange = { viewModel.practiceOnlyStarred.value = it }
+                        )
+                        Text("⭐ Chỉ luyện tập câu gắn sao trước", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showConfigDialog = false }) {
+                    Text("Xong")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -1402,12 +1454,47 @@ fun PracticeScreenView(
             },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Chọn câu bất kỳ để luyện tập hoặc xem lại tiến độ bài học dưới đây:",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Chọn câu luyện tập hoặc xem lại tiến độ:",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        val areAllStarred = practicePairs.isNotEmpty() && practicePairs.all { pair ->
+                            allStarredPairs.any { s ->
+                                s.vi.trim().lowercase() == pair.vi.trim().lowercase() &&
+                                s.foreign.trim().lowercase() == pair.foreign.trim().lowercase()
+                            }
+                        }
+                        TextButton(
+                            onClick = {
+                                if (areAllStarred) {
+                                    viewModel.unstarAllPracticePairs()
+                                } else {
+                                    viewModel.starAllPracticePairs()
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (areAllStarred) Icons.Default.StarBorder else Icons.Default.Star,
+                                contentDescription = if (areAllStarred) "Bỏ sao tất cả" else "Sao tất cả",
+                                modifier = Modifier.size(14.dp),
+                                tint = if (areAllStarred) Color.Gray else Color(0xFFFFD700)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (areAllStarred) "Hủy chọn" else "Chọn tất cả ⭐",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     
                     Box(modifier = Modifier.height(300.dp)) {
                         LazyColumn(
@@ -1450,7 +1537,7 @@ fun PracticeScreenView(
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = pair.vi,
+                                            text = if (currentDirection == "vi") pair.vi else pair.foreign,
                                             fontSize = 13.sp,
                                             maxLines = 1,
                                             color = MaterialTheme.colorScheme.onSurface

@@ -116,6 +116,29 @@ class TranslationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun starAllPracticePairs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val lang = targetLanguage.value
+            _practicePairs.value.forEach { pair ->
+                val existing = allStarredPairs.value.any { 
+                    it.vi.trim().lowercase() == pair.vi.trim().lowercase() && 
+                    it.foreign.trim().lowercase() == pair.foreign.trim().lowercase() 
+                }
+                if (!existing) {
+                    repository.insertStarredPair(StarredPair(vi = pair.vi, foreign = pair.foreign, language = lang))
+                }
+            }
+        }
+    }
+
+    fun unstarAllPracticePairs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _practicePairs.value.forEach { pair ->
+                repository.deleteStarredPair(pair.vi, pair.foreign)
+            }
+        }
+    }
+
     // TTS Engine
     private var tts: TextToSpeech? = null
     private val activeCallbacks = java.util.concurrent.ConcurrentHashMap<String, () -> Unit>()
@@ -601,6 +624,7 @@ class TranslationViewModel(application: Application) : AndroidViewModel(applicat
     fun showAnswerToggle() {
         val correct = getCorrectAnswer() ?: return
         _feedback.value = FeedbackState.Revealed(correct)
+        speakAnswer()
     }
 
     fun toggleAnswerRevealed() {
@@ -610,6 +634,7 @@ class TranslationViewModel(application: Application) : AndroidViewModel(applicat
         } else {
             val correct = getCorrectAnswer() ?: return
             _feedback.value = FeedbackState.Revealed(correct)
+            speakAnswer()
         }
     }
 
