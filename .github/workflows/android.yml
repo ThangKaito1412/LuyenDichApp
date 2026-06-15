@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # Sửa cảnh báo Node.js của GitHub
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,8 +25,6 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build file APK (Debug)
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Truyền trực tiếp key vào môi trường build
       run: ./gradlew assembleDebug
 
     - name: Tải file APK lên GitHub Artifacts
