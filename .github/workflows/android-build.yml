@@ -21,11 +21,14 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    # Sử dụng action chuẩn của Gradle để setup môi trường
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       
-    # Dùng lệnh `gradle` thay vì `./gradlew`
+    # BƯỚC MỚI: Tự động tạo file debug.keystore tạm thời để build
+    - name: Generate Debug Keystore
+      run: |
+        keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
     - name: Build Debug APK
       run: gradle assembleDebug
 
