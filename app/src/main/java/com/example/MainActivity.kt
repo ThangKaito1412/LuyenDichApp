@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import androidx.core.content.ContextCompat
 import com.example.data.StudySet
@@ -2634,18 +2635,36 @@ fun PracticeScreenView(
                             factory = { ctx ->
                                 WebView(ctx).apply {
                                     webViewClient = WebViewClient()
+                                    webChromeClient = WebChromeClient()
                                     settings.apply {
                                         javaScriptEnabled = true
                                         domStorageEnabled = true
+                                        databaseEnabled = true
+                                        javaScriptCanOpenWindowsAutomatically = true
                                         useWideViewPort = true
                                         loadWithOverviewMode = true
                                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                        
+                                        // Standardize User-Agent to match standard Google Chrome to enable Google Search AI Mode (Chế độ AI)
+                                        val originalUA = userAgentString
+                                        val cleanUA = originalUA
+                                            .replace("; wv", "")
+                                            .replace("Version/4.0 ", "")
+                                        userAgentString = if (cleanUA.contains("Safari/537.36")) {
+                                            cleanUA.substringBefore("Safari/537.36") + "Safari/537.36"
+                                        } else {
+                                            cleanUA
+                                        }
                                     }
                                     showWebViewUrl?.let { loadUrl(it) }
                                 }
                             },
                             update = { webView ->
                                 webViewRef = webView
+                                val targetUrl = showWebViewUrl
+                                if (targetUrl != null && webView.url != targetUrl) {
+                                    webView.loadUrl(targetUrl)
+                                }
                             },
                             modifier = Modifier.fillMaxSize()
                         )
