@@ -2538,6 +2538,7 @@ fun PracticeScreenView(
     // Elegant Floating Overlay custom WebView Dialog (Feature 2)
     if (showWebViewUrl != null) {
         var webViewRef by remember { mutableStateOf<WebView?>(null) }
+        var loadedUrl by remember { mutableStateOf<String?>(showWebViewUrl) }
         
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showWebViewUrl = null },
@@ -2634,8 +2635,18 @@ fun PracticeScreenView(
                         AndroidView(
                             factory = { ctx ->
                                 WebView(ctx).apply {
+                                    val webViewInstance = this
                                     webViewClient = WebViewClient()
                                     webChromeClient = WebChromeClient()
+                                    
+                                    // Enable cookies & third-party cookies for seamless login and user preferences (e.g., Google Search Labs / AI Mode)
+                                    android.webkit.CookieManager.getInstance().apply {
+                                        setAcceptCookie(true)
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                                            setAcceptThirdPartyCookies(webViewInstance, true)
+                                        }
+                                    }
+                                    
                                     settings.apply {
                                         javaScriptEnabled = true
                                         domStorageEnabled = true
@@ -2662,7 +2673,8 @@ fun PracticeScreenView(
                             update = { webView ->
                                 webViewRef = webView
                                 val targetUrl = showWebViewUrl
-                                if (targetUrl != null && webView.url != targetUrl) {
+                                if (targetUrl != null && targetUrl != loadedUrl) {
+                                    loadedUrl = targetUrl
                                     webView.loadUrl(targetUrl)
                                 }
                             },
